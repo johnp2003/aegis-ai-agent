@@ -1,0 +1,146 @@
+[
+  {
+    "id": 1,
+    "description": "Fake airdrop claim scam: the transaction makes a MoveCall to rewards::claim_airdrop on an unknown unverified package, then uses transfer_objects to move the wallet's assets out. This is the classic wallet-drain pattern where a bogus reward claim masks an asset exfiltration.",
+    "category": "exploit",
+    "risk_level": "critical"
+  },
+  {
+    "id": 2,
+    "description": "Capability deletion attack: a MoveCall to vault::delete_owner_cap or a similar burn function destroys the owner capability object that controls the user's vault or account. Once the capability is deleted, the user permanently loses control over the associated assets.",
+    "category": "exploit",
+    "risk_level": "critical"
+  },
+  {
+    "id": 3,
+    "description": "NFT phishing drain: transfer_objects sends the user's NFTs to an address with no prior history, combined with a MoveCall to an unknown unverified package. Fresh recipient addresses plus unverified code is a strong indicator of a phishing site draining collectibles.",
+    "category": "exploit",
+    "risk_level": "high"
+  },
+  {
+    "id": 4,
+    "description": "Coin exfiltration: the transaction splits coins into large amounts and then uses transfer_objects to send them to an unknown address, right after a MoveCall to an unknown unverified package. Splitting followed by outbound transfers to unrecognized recipients is how drainers siphon coin balances.",
+    "category": "exploit",
+    "risk_level": "critical"
+  },
+  {
+    "id": 5,
+    "description": "Loan exfiltration: a MoveCall to lending::borrow takes out a loan and the borrowed proceeds are immediately moved with transfer_objects to an unrelated wallet. Legitimate borrowing keeps proceeds in the borrower's wallet; routing them straight to a third party signals a compromised account or scam.",
+    "category": "exploit",
+    "risk_level": "high"
+  },
+  {
+    "id": 6,
+    "description": "Malicious approval or delegation: a MoveCall grants an unknown unverified package ongoing control or delegated authority over the wallet's objects. Handing object custody or admin rights to unaudited code lets the attacker drain assets in a later transaction.",
+    "category": "exploit",
+    "risk_level": "critical"
+  },
+  {
+    "id": 7,
+    "description": "Fake reward or rebate lure: a MoveCall promises a reward or rebate but requires the user to first send assets via transfer_objects to an unknown unverified package or address. Any claim flow that demands an upfront outbound transfer is a scam pattern.",
+    "category": "exploit",
+    "risk_level": "high"
+  },
+  {
+    "id": 8,
+    "description": "DEX impersonation: an unknown unverified package exposes module and function names mimicking a known DEX, such as a MoveCall to pool::swap_exact_input that does not resolve to Cetus (audited DEX) or any registered protocol. The familiar-looking call actually routes funds to attacker-controlled code.",
+    "category": "exploit",
+    "risk_level": "high"
+  },
+  {
+    "id": 9,
+    "description": "Destructive burn plus drain: MoveCalls to burn or destroy functions delete objects the user owns while transfer_objects moves the remaining assets out of the wallet. Combining object destruction with outbound transfers leaves the victim with nothing to recover.",
+    "category": "exploit",
+    "risk_level": "high"
+  },
+  {
+    "id": 10,
+    "description": "Full drainer combo: one transaction chains a MoveCall to rewards::claim_airdrop on an unknown unverified package, transfer_objects moving assets out of the wallet, and a MoveCall to vault::delete_owner_cap destroying the owner capability. The fake claim, the drain, and the capability deletion together maximize damage in a single signature.",
+    "category": "exploit",
+    "risk_level": "critical"
+  },
+  {
+    "id": 11,
+    "description": "Standard token swap: the transaction splits coins and then makes a MoveCall to pool::swap_exact_input on Cetus (audited DEX). This is the routine, well-understood pattern for exchanging one token for another on an audited exchange.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 12,
+    "description": "Self transfer: a simple transfer_objects sends a coin object to the sender's own address. Moving assets between one's own addresses or reorganizing owned objects carries no counterparty risk.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 13,
+    "description": "Collateral deposit: a MoveCall to lending::deposit_collateral on NAVI Protocol (audited Lending) locks assets as collateral. Depositing into an audited lending protocol is standard DeFi activity with well-defined withdrawal rights.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 14,
+    "description": "Staking on a known protocol: a MoveCall to farm::stake deposits tokens into a staking or farming position on a recognized protocol. Staking with a registered protocol is routine yield-seeking behavior.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 15,
+    "description": "NFT mint: a MoveCall to a mint function on an audited package creates a new NFT for the sender. Minting from a verified, audited collection contract is an ordinary and expected user action.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 16,
+    "description": "Coin housekeeping: merge_coins consolidates several small coin objects into one. This is pure wallet maintenance that does not move value out of the wallet or interact with external code.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 17,
+    "description": "Two-step DeFi: the transaction performs a MoveCall to pool::swap_exact_input on Cetus (audited DEX) and then a MoveCall to lending::deposit_collateral on NAVI Protocol (audited Lending). Swapping and depositing on audited protocols in one transaction is a common, safe composition.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 18,
+    "description": "Collateralized borrow: a MoveCall to lending::deposit_collateral posts collateral and a MoveCall to lending::borrow draws a loan against it on an audited lending protocol like NAVI Protocol (audited Lending). Borrowing with collateral posted in the same transaction is standard leverage-free lending usage.",
+    "category": "benign",
+    "risk_level": "low"
+  },
+  {
+    "id": 19,
+    "description": "Leveraged yield loop: the transaction splits coins, makes a MoveCall to pool::swap_exact_input on Cetus (audited DEX), then MoveCalls to lending::deposit_collateral and lending::borrow on NAVI Protocol (audited Lending), and finally a MoveCall to farm::stake on an unaudited protocol like Bucket Protocol. This is legitimate leveraged yield farming, but the borrow leg carries liquidation exposure and the final stake sits on unaudited code.",
+    "category": "edge_case",
+    "risk_level": "medium"
+  },
+  {
+    "id": 20,
+    "description": "First-time interaction with a recently deployed package: the MoveCall targets a package that is not yet in any registry but appears to be a legitimate new deployment. Lack of audit history and zero prior usage warrant caution even when nothing overtly malicious happens.",
+    "category": "edge_case",
+    "risk_level": "medium"
+  },
+  {
+    "id": 21,
+    "description": "Exchange deposit: transfer_objects moves a large SUI amount to a known exchange deposit address. Large outbound transfers deserve a second look, but sending funds to a recognized exchange is usually intentional.",
+    "category": "edge_case",
+    "risk_level": "medium"
+  },
+  {
+    "id": 22,
+    "description": "Complex multi-protocol transaction: more than 4 operations — a mix of split_coins, merge_coins, MoveCalls, and transfer_objects — span several different protocols in one transaction. Each step may be fine individually, but the combined complexity makes the total effect hard for a user to verify.",
+    "category": "edge_case",
+    "risk_level": "medium"
+  },
+  {
+    "id": 23,
+    "description": "Unaudited but known protocol: the transaction makes a MoveCall to a protocol that is recognized and widely used, such as Bucket Protocol, but has not completed a security audit. The code is not anonymous, yet unaudited contracts carry elevated smart-contract risk.",
+    "category": "edge_case",
+    "risk_level": "high"
+  },
+  {
+    "id": 24,
+    "description": "Large payment to a known counterparty: the transaction splits coins to carve out a sizeable amount and uses transfer_objects to send it to a known, previously used address. The recipient is familiar, but the payment size makes confirmation worthwhile.",
+    "category": "edge_case",
+    "risk_level": "medium"
+  }
+]

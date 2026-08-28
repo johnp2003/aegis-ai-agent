@@ -1,0 +1,42 @@
+[
+  {
+    "packageId": "0xa9556bc9000000000000000000000000000000000000000000000000000000a1",
+    "name": "Cetus",
+    "category": "DEX",
+    "audited": true,
+    "website": "https://cetus.zone",
+    "risk": "low"
+  },
+  {
+    "packageId": "0xc963eaed000000000000000000000000000000000000000000000000000000b2",
+    "name": "NAVI Protocol",
+    "category": "Lending",
+    "audited": true,
+    "website": "https://naviprotocol.io",
+    "risk": "low"
+  },
+  {
+    "packageId": "0xd1e2f3a4000000000000000000000000000000000000000000000000000000c3",
+    "name": "Scallop",
+    "category": "Lending",
+    "audited": true,
+    "website": "https://scallop.io",
+    "risk": "low"
+  },
+  {
+    "packageId": "0xe2f3a4b5000000000000000000000000000000000000000000000000000000d4",
+    "name": "Aftermath Finance",
+    "category": "DEX",
+    "audited": true,
+    "website": "https://aftermath.finance",
+    "risk": "low"
+  },
+  {
+    "packageId": "0xf3a4b5c6000000000000000000000000000000000000000000000000000000e5",
+    "name": "Bucket Protocol",
+    "category": "Stablecoin",
+    "audited": false,
+    "website": "https://bucketprotocol.io",
+    "risk": "medium"
+  }
+]
