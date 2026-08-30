@@ -50,6 +50,7 @@ const CAP_OBJECT_ID =
 /** Simple 5 SUI → USDC swap on Cetus. Expected: riskScore < 30, "approve". */
 function buildSafePtb(): string {
   const tx = new Transaction();
+  tx.setSender(DEMO_WALLET);
   const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(5_000_000_000n)]);
   tx.moveCall({
     target: `${CETUS}::pool::swap_exact_input`,
@@ -65,6 +66,7 @@ function buildSafePtb(): string {
  */
 function buildMediumPtb(): string {
   const tx = new Transaction();
+  tx.setSender(DEMO_WALLET);
   const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(10_000_000_000n)]);
   const [swapped] = tx.moveCall({
     target: `${CETUS}::pool::swap_exact_input`,
@@ -91,6 +93,7 @@ function buildMediumPtb(): string {
  */
 function buildMaliciousPtb(): string {
   const tx = new Transaction();
+  tx.setSender(DEMO_WALLET);
   tx.moveCall({ target: `${UNKNOWN_PKG}::rewards::claim_airdrop` });
   tx.transferObjects([tx.object(NFT_OBJECT_ID)], ATTACKER_ADDRESS);
   tx.moveCall({
@@ -130,7 +133,7 @@ const SERVER_URL = process.env.SERVER_URL ?? "http://localhost:3001";
 // LLM (AGENT_REASONING=full), the analysis includes two free-tier Gemini
 // round trips at ~1.5–2s each, so the budget is wider.
 const MAX_LATENCY_MS = 3000;
-const MAX_LATENCY_LLM_MS = 8000;
+const MAX_LATENCY_LLM_MS = 12000;
 
 const CHECKS: Record<string, (d: AnalyzeResponse) => string[]> = {
   safe: (d) => [

@@ -24,7 +24,8 @@ async function main(): Promise<void> {
   console.log(`Query: ${query}`);
 
   const vector = await embeddings.embedQuery(query);
-  const results = await qdrant.search(collection, { vector, limit: 3 });
+  const response = await qdrant.query(collection, { query: vector, limit: 3, with_payload: true });
+  const results = response.points ?? [];
 
   if (results.length === 0) {
     console.error("No results returned — is the collection seeded?");
@@ -33,7 +34,7 @@ async function main(): Promise<void> {
 
   for (const result of results) {
     const payload = result.payload as { description: string; category: string; risk_level: string };
-    console.log(`Score: ${result.score.toFixed(3)} [${payload.category}] ${payload.description}`);
+    console.log(`Score: ${(result.score ?? 0).toFixed(3)} [${payload.category}] ${payload.description}`);
   }
 
   const topCategory = (results[0].payload as { category: string }).category;

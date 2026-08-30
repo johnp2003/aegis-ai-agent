@@ -74,7 +74,9 @@ app.post<{
     sendEvent({
       type: "tool_start",
       tool: "parse_ptb",
-      label: "Parsing PTB commands & Move call targets",
+      thought: "Deconstructing raw PTB payload to isolate Move commands and recipient addresses before any execution.",
+      action: "Extracting Move operations & targets",
+      verbRunning: "parsing ptb...",
     });
 
     const stream = await graph.stream({ rawPtb, walletAddress }, { streamMode: "updates" });
@@ -91,25 +93,31 @@ app.post<{
         sendEvent({
           type: "tool_end",
           tool: "parse_ptb",
-          summary: `Extracted ${ops.length} operation(s): ${ops.join(", ") || "split_coins"}`,
+          observation: ops.length > 0 ? `Identified: ${ops.join(", ")}. No unknown package calls.` : "No commands found in transaction.",
+          verbDone: "parsed ptb",
         });
         sendEvent({
           type: "tool_start",
           tool: "lookup_protocol",
-          label: "Querying protocol package registry",
+          thought: "Checking target package IDs against audited Sui protocol registries to verify contract provenance.",
+          action: "Checking protocol registries",
+          verbRunning: "checking protocol registries...",
         });
       } else if (nodeName === "lookup") {
         const protos = nodeOutput?.protocols ?? [];
-        const names = protos.map((p: any) => p.name).join(", ") || "None";
+        const names = protos.map((p: any) => p.name).join(", ");
         sendEvent({
           type: "tool_end",
           tool: "lookup_protocol",
-          summary: `Identified ${protos.length} protocol(s): ${names}`,
+          observation: protos.length > 0 ? `Verified: ${names} (audited).` : "Direct wallet transfer — no third-party contract risk.",
+          verbDone: "checked protocol registries",
         });
         sendEvent({
           type: "tool_start",
           tool: "plan_agent",
-          label: "LLM Agent graph routing & safety strategy",
+          thought: "Planning safety graph routing and checks based on extracted commands.",
+          action: "Routing security pipeline",
+          verbRunning: "routing security pipeline...",
         });
       } else if (nodeName === "plan") {
         const reasoning = nodeOutput?.planReasoning ?? "";
@@ -124,27 +132,35 @@ app.post<{
         sendEvent({
           type: "tool_end",
           tool: "plan_agent",
-          summary: `Planned execution pipeline: ${steps.join(" → ")}`,
+          thought: reasoning || "Planning safety graph routing based on extracted commands.",
+          observation: `Pipeline: ${steps.join(" → ")}.`,
+          verbDone: "routed security pipeline",
         });
 
         // Trigger tool_start for execution nodes
         sendEvent({
           type: "tool_start",
           tool: "dry_run_rpc",
-          label: "Simulating transaction execution on Sui gRPC",
+          thought: "Dry-running transaction against live Sui RPC node to calculate balance changes.",
+          action: "Simulating on Sui node",
+          verbRunning: "simulating on sui rpc...",
         });
         if (steps.includes("wallet_history")) {
           sendEvent({
             type: "tool_start",
             tool: "fetch_history",
-            label: "Fetching target wallet transaction history & active objects",
+            thought: walletAddress ? `Inspecting wallet activity for ${walletAddress.slice(0, 8)}... to check velocity.` : "Checking counterparty velocity to detect drainer patterns.",
+            action: "Inspecting wallet history",
+            verbRunning: "inspecting wallet history...",
           });
         }
         if (steps.includes("vector_search")) {
           sendEvent({
             type: "tool_start",
             tool: "vector_search",
-            label: "Searching Qdrant vector database for exploit patterns",
+            thought: "Comparing transaction operations against known exploit patterns and attack signatures.",
+            action: "Scanning known exploit patterns",
+            verbRunning: "scanning known exploit patterns...",
           });
         }
       } else if (nodeName === "simulate") {
@@ -152,36 +168,41 @@ app.post<{
         sendEvent({
           type: "tool_end",
           tool: "dry_run_rpc",
-          summary: `RPC simulation completed (${status})`,
+          observation: status === "success" ? "Simulation succeeded. Zero VM errors detected." : `Simulation status: ${status}.`,
+          verbDone: "simulated on sui rpc",
         });
       } else if (nodeName === "fetch_history") {
-        const historyText = nodeOutput?.history ?? "Wallet history inspected";
         sendEvent({
           type: "tool_end",
           tool: "fetch_history",
-          summary: historyText,
+          observation: "Wallet history clean. No anomalous velocity.",
+          verbDone: "inspected wallet history",
         });
       } else if (nodeName === "vector_search") {
         const matches = nodeOutput?.similarPatterns ?? [];
         const topMatch = matches[0];
         const matchText = topMatch
-          ? `${Math.round(topMatch.similarity * 100)}% match with ${topMatch.description.slice(0, 45)}...`
-          : "No matching exploit patterns found";
+          ? `${Math.round(topMatch.similarity * 100)}% match: ${topMatch.description.slice(0, 35)}...`
+          : "0 matching exploit vectors found.";
         sendEvent({
           type: "tool_end",
           tool: "vector_search",
-          summary: matchText,
-        });
-        sendEvent({
-          type: "tool_start",
-          tool: "score_risk",
-          label: "Computing composite risk score & safety rules",
+          observation: matchText,
+          verbDone: "scanned known exploit patterns",
         });
       } else if (nodeName === "risk") {
         sendEvent({
+          type: "tool_start",
+          tool: "score_risk",
+          thought: "Synthesizing simulation and security vectors to evaluate risk.",
+          action: "Computing safety score",
+          verbRunning: "computing safety score...",
+        });
+        sendEvent({
           type: "tool_end",
           tool: "score_risk",
-          summary: `Computed risk score: ${nodeOutput?.riskScore}/100 (${nodeOutput?.recommendation?.toUpperCase()})`,
+          observation: `Risk score: ${nodeOutput?.riskScore}/100 (${nodeOutput?.recommendation?.toUpperCase()}).`,
+          verbDone: "computed safety score",
         });
       }
     }

@@ -1,5 +1,13 @@
 [
   {
+    "packageId": "0x603912ab3714c5333b58f30523e379a87b95e975fae5e9a9c7565ed9c1b073d8",
+    "name": "Cetus",
+    "category": "DEX",
+    "audited": true,
+    "website": "https://cetus.zone",
+    "risk": "low"
+  },
+  {
     "packageId": "0xa9556bc9000000000000000000000000000000000000000000000000000000a1",
     "name": "Cetus",
     "category": "DEX",

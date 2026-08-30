@@ -36,6 +36,9 @@ export class RpcSuiService implements SuiService {
       let bytes: Uint8Array;
       if (rawPtb.trimStart().startsWith("{")) {
         const tx = Transaction.from(rawPtb);
+        if (!tx.getData().sender) {
+          tx.setSender("0xb2843a572fd48355541716ccb47e49dfa07013028c40b5a54ec79e797a5f7f0b");
+        }
         bytes = await tx.build({ client: this.grpcClient });
       } else {
         bytes = fromBase64(rawPtb);
