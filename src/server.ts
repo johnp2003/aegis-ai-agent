@@ -5,10 +5,16 @@
 
 import "./env.js";
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { graph } from "./graph.js";
 import { getSuiMode } from "./services/index.js";
 
 const app = Fastify({ logger: true });
+
+await app.register(cors, {
+  origin: true,
+  methods: ["GET", "POST", "OPTIONS"],
+});
 
 app.get("/health", async () => ({ ok: true, suiMode: getSuiMode() }));
 
