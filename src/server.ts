@@ -16,7 +16,10 @@ await app.register(cors, {
   methods: ["GET", "POST", "OPTIONS"],
 });
 
-app.get("/health", async () => ({ ok: true, suiMode: getSuiMode() }));
+app.get("/health", async () => {
+  console.log("🩺 [health] Health check ping received");
+  return { ok: true, suiMode: getSuiMode() };
+});
 
 app.post<{
   Body: { rawPtb: string; walletAddress: string };
@@ -24,13 +27,27 @@ app.post<{
   const { rawPtb, walletAddress } = req.body ?? {};
 
   if (!rawPtb || !walletAddress) {
+    console.warn("⚠️ [/analyze] Missing rawPtb or walletAddress in request body");
     return reply
       .status(400)
       .send({ error: "rawPtb and walletAddress are required" });
   }
 
+  console.log(`\n======================================================`);
+  console.log(`📥 [/analyze] New Transaction Analysis Request`);
+  console.log(`👛 Wallet: ${walletAddress}`);
+  console.log(`📦 PTB Payload Length: ${rawPtb.length} chars`);
+
   try {
+    const started = Date.now();
     const result = await graph.invoke({ rawPtb, walletAddress });
+    const elapsed = Date.now() - started;
+
+    console.log(`🛡️ [/analyze] Analysis Complete in ${elapsed}ms:`);
+    console.log(`   Verdict : ${result.recommendation?.toUpperCase()} (Score: ${result.riskScore}/100)`);
+    console.log(`   Ops     : ${result.operations?.join(", ")}`);
+    console.log(`   Flags   : ${result.riskFlags?.length ? result.riskFlags.join(" | ") : "None"}`);
+    console.log(`======================================================\n`);
 
     return reply.send({
       explanation: result.explanation,
@@ -46,6 +63,7 @@ app.post<{
       planSource: result.planSource,
     });
   } catch (err) {
+    console.error("❌ [/analyze] Execution failed:", err);
     req.log.error(err);
     return reply.status(500).send({
       error: "analysis_failed",
@@ -60,10 +78,16 @@ app.post<{
   const { rawPtb, walletAddress } = req.body ?? {};
 
   if (!rawPtb || !walletAddress) {
+    console.warn("⚠️ [/analyze-stream] Missing rawPtb or walletAddress");
     return reply
       .status(400)
       .send({ error: "rawPtb and walletAddress are required" });
   }
+
+  console.log(`\n======================================================`);
+  console.log(`🌊 [/analyze-stream] New SSE Stream Session`);
+  console.log(`👛 Wallet: ${walletAddress}`);
+  console.log(`📦 PTB Payload Length: ${rawPtb.length} chars`);
 
   reply.raw.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -96,6 +120,7 @@ app.post<{
 
       if (nodeName === "parse") {
         const ops = nodeOutput?.operations ?? [];
+        console.log(`   [1. Parse]       Extracted ops: ${ops.join(", ") || "None"}`);
         sendEvent({
           type: "tool_end",
           tool: "parse_ptb",
@@ -112,6 +137,7 @@ app.post<{
       } else if (nodeName === "lookup") {
         const protos = nodeOutput?.protocols ?? [];
         const names = protos.map((p: any) => p.name).join(", ");
+        console.log(`   [2. Lookup]      Audited protocols: ${names || "None (direct wallet transfer)"}`);
         sendEvent({
           type: "tool_end",
           tool: "lookup_protocol",
@@ -128,6 +154,8 @@ app.post<{
       } else if (nodeName === "plan") {
         const reasoning = nodeOutput?.planReasoning ?? "";
         const steps = nodeOutput?.plannedSteps ?? [];
+        console.log(`   [3. Plan]        Reasoning: "${reasoning.slice(0, 80)}..."`);
+        console.log(`   [3. Plan]        Execution pipeline: ${steps.join(" → ")}`);
         if (reasoning) {
           sendEvent({
             type: "thought",
@@ -171,6 +199,7 @@ app.post<{
         }
       } else if (nodeName === "simulate") {
         const status = nodeOutput?.simulation?.status ?? "success";
+        console.log(`   [4. Simulate]    Status: ${status} (Gas: ${nodeOutput?.simulation?.gasUsed ?? "N/A"})`);
         sendEvent({
           type: "tool_end",
           tool: "dry_run_rpc",
@@ -178,6 +207,7 @@ app.post<{
           verbDone: "simulated on sui rpc",
         });
       } else if (nodeName === "fetch_history") {
+        console.log(`   [5. History]     Checked wallet velocity.`);
         sendEvent({
           type: "tool_end",
           tool: "fetch_history",
@@ -190,6 +220,7 @@ app.post<{
         const matchText = topMatch
           ? `${Math.round(topMatch.similarity * 100)}% match: ${topMatch.description.slice(0, 35)}...`
           : "0 matching exploit vectors found.";
+        console.log(`   [6. Vectors]     Top match: ${matchText}`);
         sendEvent({
           type: "tool_end",
           tool: "vector_search",
@@ -197,6 +228,7 @@ app.post<{
           verbDone: "scanned known exploit patterns",
         });
       } else if (nodeName === "risk") {
+        console.log(`   [7. Risk Score]  Score: ${nodeOutput?.riskScore}/100 | Recommendation: ${nodeOutput?.recommendation?.toUpperCase()}`);
         sendEvent({
           type: "tool_start",
           tool: "score_risk",
@@ -212,6 +244,9 @@ app.post<{
         });
       }
     }
+
+    console.log(`🏁 [/analyze-stream] Session completed successfully.`);
+    console.log(`======================================================\n`);
 
     sendEvent({
       type: "result",
@@ -232,6 +267,7 @@ app.post<{
 
     reply.raw.end();
   } catch (err) {
+    console.error("❌ [/analyze-stream] Error during stream:", err);
     req.log.error(err);
     sendEvent({
       type: "error",
@@ -241,13 +277,19 @@ app.post<{
   }
 });
 
+const port = Number(process.env.PORT ?? 3001);
 app.listen(
-  { port: Number(process.env.PORT ?? 3001), host: "0.0.0.0" },
+  { port, host: "0.0.0.0" },
   (err) => {
     if (err) {
+      console.error("❌ Failed to start server:", err);
       app.log.error(err);
       process.exit(1);
     }
-    app.log.info(`Sui mode: ${getSuiMode()}`);
+    console.log(`\n🛡️  ===========================================`);
+    console.log(`🛡️  AEGIS AI Agent Server is LIVE`);
+    console.log(`📡 Listening on: http://0.0.0.0:${port}`);
+    console.log(`⛓️  Sui Mode    : ${getSuiMode().toUpperCase()}`);
+    console.log(`🛡️  ===========================================\n`);
   }
 );
