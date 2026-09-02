@@ -110,10 +110,12 @@ function parseModelJson(raw: string): {
   return { verdict, truthScore, evidenceCitations, reasoningTrace, explanation };
 }
 
+const DEFAULT_TIMEOUT_MS = 45000;
+
 async function queryGonkaModel(
   model: string,
   facts: FactsPayload,
-  timeoutMs = 25000
+  timeoutMs = DEFAULT_TIMEOUT_MS
 ): Promise<GonkaModelOutput> {
   const apiKey = getApiKey();
   const baseUrl = getBaseUrl();
@@ -181,14 +183,16 @@ export async function runGonkaExplainVerification(
 ): Promise<{ explanation: string; gonkaVerification: GonkaVerificationResult }> {
   const primaryModel = process.env.GONKA_MODEL_PRIMARY ?? DEFAULT_PRIMARY;
   const secondaryModel = process.env.GONKA_MODEL_SECONDARY ?? DEFAULT_SECONDARY;
+  const timeoutMs = Number(process.env.GONKA_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
 
   console.log(`[gonka] Initiating dual-model inference on Gonka Router`);
   console.log(`   Model 1 : ${primaryModel}`);
   console.log(`   Model 2 : ${secondaryModel}`);
+  console.log(`   Timeout : ${timeoutMs}ms`);
 
   const [res1, res2] = await Promise.allSettled([
-    queryGonkaModel(primaryModel, facts, 25000),
-    queryGonkaModel(secondaryModel, facts, 25000),
+    queryGonkaModel(primaryModel, facts, timeoutMs),
+    queryGonkaModel(secondaryModel, facts, timeoutMs),
   ]);
 
   let primary: GonkaModelOutput;
