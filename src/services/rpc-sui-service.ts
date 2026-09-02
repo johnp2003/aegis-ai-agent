@@ -33,20 +33,21 @@ export class RpcSuiService implements SuiService {
 
   async dryRun(rawPtb: string): Promise<SimResult> {
     try {
-      let bytes: Uint8Array;
+      let transactionInput: Transaction | Uint8Array;
       if (rawPtb.trimStart().startsWith("{")) {
         const tx = Transaction.from(rawPtb);
         if (!tx.getData().sender) {
           tx.setSender("0xb2843a572fd48355541716ccb47e49dfa07013028c40b5a54ec79e797a5f7f0b");
         }
-        bytes = await tx.build({ client: this.grpcClient });
+        transactionInput = tx;
       } else {
-        bytes = fromBase64(rawPtb);
+        transactionInput = fromBase64(rawPtb);
       }
 
-      // Modern Sui 2.0 gRPC simulation
-      const result = await this.grpcClient.core.simulateTransaction({
-        transaction: bytes,
+      // Modern Sui 2.0 gRPC simulation with mocked gas (bypasses coin-locking & gas-selection failures)
+      const result = await this.grpcClient.simulateTransaction({
+        transaction: transactionInput,
+        doGasSelection: false,
         checksEnabled: false,
         include: {
           effects: true,
