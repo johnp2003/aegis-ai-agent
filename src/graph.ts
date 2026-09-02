@@ -24,6 +24,8 @@ import { z } from "zod";
 import { AgentState, Protocol, SimResult, State } from "./state.js";
 import { parsePtb, dryRun, lookupProtocol, scoreRisk, getHistory, vectorSearch } from "./tools.js";
 import { SYSTEM_PROMPT, PLAN_PROMPT } from "./prompts.js";
+import { runGonkaExplainVerification } from "./services/index.js";
+
 
 // Created lazily so env vars are loaded (src/env.ts) before the key is read.
 let llm: ChatGoogleGenerativeAI | null = null;
@@ -261,6 +263,22 @@ async function explainNode(state: State) {
     similarPatterns: state.similarPatterns,
   };
 
+  // Primary: Decentralized Dual-Model Verification via Gonka Router
+  if (process.env.GONKA_API_KEY) {
+    try {
+      const result = await runGonkaExplainVerification(facts);
+      return {
+        explanation: result.explanation,
+        gonkaVerification: result.gonkaVerification,
+      };
+    } catch (err) {
+      console.error(
+        "explain: Gonka Router verification failed, falling back to Gemini:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
   try {
     const response = await getLlm().invoke([
       { role: "system", content: SYSTEM_PROMPT },
@@ -269,7 +287,7 @@ async function explainNode(state: State) {
         content: `Transaction facts:\n${JSON.stringify(facts, null, 2)}\n\nExplain this transaction to a non-technical user in 3–5 sentences. Use the pre-formatted SUI token amounts (formattedAmount/suiAmountDecimal) directly.`,
       },
     ]);
-    return { explanation: response.content as string };
+    return { explanation: response.content as string, gonkaVerification: null };
   } catch (err) {
     // The LLM is a polish layer over already-computed facts — if it's down
     // or throttled (free-tier Gemini quota), fall back to a deterministic
@@ -278,7 +296,7 @@ async function explainNode(state: State) {
       "explain: LLM unavailable, using deterministic summary:",
       err instanceof Error ? err.message : err
     );
-    return { explanation: fallbackExplanation(state) };
+    return { explanation: fallbackExplanation(state), gonkaVerification: null };
   }
 }
 

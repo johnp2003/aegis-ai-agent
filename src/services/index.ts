@@ -22,3 +22,6 @@ export function createSuiService(): SuiService {
   }
   return instance;
 }
+
+export * from "./gonka-service.js";
+

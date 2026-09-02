@@ -29,6 +29,30 @@ export interface SimilarPattern {
   similarity: number;
 }
 
+export interface GonkaModelOutput {
+  model: string;
+  requestId: string;
+  devshardId?: string;
+  verdict: "approve" | "caution" | "reject";
+  truthScore: number; // 0-100%
+  evidenceCitations: string[];
+  reasoningTrace: string;
+  explanation: string;
+  latencyMs?: number;
+}
+
+export interface GonkaVerificationResult {
+  provider: "gonka";
+  consensusAgreement: boolean;
+  consensusVerdict: "approve" | "caution" | "reject";
+  consensusTruthScore: number; // 0-100%
+  conflictResolution?: string;
+  models: {
+    primary: GonkaModelOutput;
+    secondary: GonkaModelOutput;
+  };
+}
+
 export const AgentState = Annotation.Root({
   // inputs
   rawPtb:         Annotation<string>,
@@ -52,6 +76,8 @@ export const AgentState = Annotation.Root({
   // outputs
   explanation:    Annotation<string>,
   recommendation: Annotation<"approve" | "caution" | "reject">,
+  gonkaVerification: Annotation<GonkaVerificationResult | null>,
 });
 
 export type State = typeof AgentState.State;
+

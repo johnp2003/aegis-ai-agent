@@ -61,6 +61,7 @@ app.post<{
       plannedSteps: result.plannedSteps,
       planReasoning: result.planReasoning,
       planSource: result.planSource,
+      gonkaVerification: result.gonkaVerification,
     });
   } catch (err) {
     console.error("❌ [/analyze] Execution failed:", err);
@@ -242,6 +243,25 @@ app.post<{
           observation: `Risk score: ${nodeOutput?.riskScore}/100 (${nodeOutput?.recommendation?.toUpperCase()}).`,
           verbDone: "computed safety score",
         });
+      } else if (nodeName === "explain") {
+        const gonka = nodeOutput?.gonkaVerification;
+        const reqs = [gonka?.models?.primary?.requestId, gonka?.models?.secondary?.requestId].filter(Boolean).join(" & ");
+        console.log(`   [8. Explain (Gonka)] Consensus: ${gonka?.consensusVerdict?.toUpperCase()} (${gonka?.consensusTruthScore ?? 0}% Truth)`);
+        sendEvent({
+          type: "tool_start",
+          tool: "gonka_verification",
+          thought: "Cross-verifying transaction security on Gonka Network via dual independent models (DeepSeek-V4 & MiniMax-M2.7)...",
+          action: "Decentralized inference & consensus",
+          verbRunning: "verifying on gonka network...",
+        });
+        sendEvent({
+          type: "tool_end",
+          tool: "gonka_verification",
+          observation: gonka
+            ? `Decentralized consensus: ${gonka.consensusVerdict?.toUpperCase()} (${gonka.consensusTruthScore}% truth). Proof: ${reqs}.`
+            : "Explanation synthesized.",
+          verbDone: "verified on gonka network",
+        });
       }
     }
 
@@ -262,6 +282,7 @@ app.post<{
         plannedSteps: finalState.plannedSteps,
         planReasoning: finalState.planReasoning,
         planSource: finalState.planSource,
+        gonkaVerification: finalState.gonkaVerification,
       },
     });
 
