@@ -24,4 +24,5 @@ export function createSuiService(): SuiService {
 }
 
 export * from "./gonka-service.js";
+export * from "./walrus-service.js";
 

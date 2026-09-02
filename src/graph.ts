@@ -24,7 +24,7 @@ import { z } from "zod";
 import { AgentState, Protocol, SimResult, State } from "./state.js";
 import { parsePtb, dryRun, lookupProtocol, scoreRisk, getHistory, vectorSearch } from "./tools.js";
 import { SYSTEM_PROMPT, PLAN_PROMPT } from "./prompts.js";
-import { runGonkaExplainVerification } from "./services/index.js";
+import { runGonkaExplainVerification, publishAuditToWalrus } from "./services/index.js";
 
 
 // Created lazily so env vars are loaded (src/env.ts) before the key is read.
@@ -263,14 +263,15 @@ async function explainNode(state: State) {
     similarPatterns: state.similarPatterns,
   };
 
+  let explanation = "";
+  let gonkaVerification: any = null;
+
   // Primary: Decentralized Dual-Model Verification via Gonka Router
   if (process.env.GONKA_API_KEY) {
     try {
       const result = await runGonkaExplainVerification(facts);
-      return {
-        explanation: result.explanation,
-        gonkaVerification: result.gonkaVerification,
-      };
+      explanation = result.explanation;
+      gonkaVerification = result.gonkaVerification;
     } catch (err) {
       console.error(
         "explain: Gonka Router verification failed, falling back to Gemini:",
@@ -279,25 +280,55 @@ async function explainNode(state: State) {
     }
   }
 
-  try {
-    const response = await getLlm().invoke([
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Transaction facts:\n${JSON.stringify(facts, null, 2)}\n\nExplain this transaction to a non-technical user in 3–5 sentences. Use the pre-formatted SUI token amounts (formattedAmount/suiAmountDecimal) directly.`,
-      },
-    ]);
-    return { explanation: response.content as string, gonkaVerification: null };
-  } catch (err) {
-    // The LLM is a polish layer over already-computed facts — if it's down
-    // or throttled (free-tier Gemini quota), fall back to a deterministic
-    // summary instead of failing the whole analysis.
-    console.error(
-      "explain: LLM unavailable, using deterministic summary:",
-      err instanceof Error ? err.message : err
-    );
-    return { explanation: fallbackExplanation(state), gonkaVerification: null };
+  if (!explanation) {
+    try {
+      const response = await getLlm().invoke([
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Transaction facts:\n${JSON.stringify(facts, null, 2)}\n\nExplain this transaction to a non-technical user in 3–5 sentences. Use the pre-formatted SUI token amounts (formattedAmount/suiAmountDecimal) directly.`,
+        },
+      ]);
+      explanation = response.content as string;
+    } catch (err) {
+      console.error(
+        "explain: LLM unavailable, using deterministic summary:",
+        err instanceof Error ? err.message : err
+      );
+      explanation = fallbackExplanation(state);
+    }
   }
+
+  // Publish immutable security audit dossier to Walrus decentralized storage
+  let walrusBlobId: string | null = null;
+  let walrusUrl: string | null = null;
+  try {
+    const walrusRes = await publishAuditToWalrus({
+      timestamp: new Date().toISOString(),
+      sender: state.walletAddress,
+      operations: state.operations,
+      protocols: state.protocols,
+      simulation: state.simulation,
+      riskScore: state.riskScore,
+      riskFlags: state.riskFlags,
+      recommendation: state.recommendation,
+      explanation,
+      gonkaVerification,
+    });
+    if (walrusRes) {
+      walrusBlobId = walrusRes.blobId;
+      walrusUrl = walrusRes.explorerUrl;
+    }
+  } catch (err: any) {
+    console.warn("[walrus] Audit publishing error:", err.message);
+  }
+
+  return {
+    explanation,
+    gonkaVerification,
+    walrusBlobId,
+    walrusUrl,
+  };
 }
 
 function fallbackExplanation(state: State): string {

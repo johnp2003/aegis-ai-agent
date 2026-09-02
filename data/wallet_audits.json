@@ -1,0 +1,55 @@
+[
+  {
+    "walletAddress": "0xffae7e430e5cca75a00b23169f4a39cb43721fd1bad89fa3b3e1e01b12db2fe5",
+    "blobId": "vK4OKQHFf4XyxzR2M34Fm6geNZhzjFAUskpLasotZ0s",
+    "timestamp": "2026-09-02T08:49:31.340Z",
+    "operations": [
+      "merge_coins",
+      "split_coins",
+      "transfer_objects"
+    ],
+    "protocols": [],
+    "riskScore": 15,
+    "recommendation": "approve",
+    "truthScore": 95,
+    "summary": "This transaction appears to be a routine coin management operation, likely consolidating or splitting SUI coins and transferring them, possibly to ano",
+    "explorerUrl": "https://walruscan.com/testnet/blob/vK4OKQHFf4XyxzR2M34Fm6geNZhzjFAUskpLasotZ0s",
+    "aggregatorUrl": "https://aggregator.walrus-testnet.walrus.space/v1/blobs/vK4OKQHFf4XyxzR2M34Fm6geNZhzjFAUskpLasotZ0s"
+  },
+  {
+    "walletAddress": "0xffae7e430e5cca75a00b23169f4a39cb43721fd1bad89fa3b3e1e01b12db2fe5",
+    "blobId": "DRNyZ8jO6xBPPaI8lXk8HaCARISZ0WOSU6wpQPEkC8M",
+    "timestamp": "2026-09-02T08:20:15.523Z",
+    "operations": [
+      "SplitCoins",
+      "TransferObjects"
+    ],
+    "protocols": [
+      "Sui System"
+    ],
+    "riskScore": 15,
+    "recommendation": "approve",
+    "truthScore": 95,
+    "summary": "Routine coin management operation, consolidating or splitting SUI coins. Low risk score supports safe assessment.",
+    "explorerUrl": "https://walruscan.com/testnet/blob/DRNyZ8jO6xBPPaI8lXk8HaCARISZ0WOSU6wpQPEkC8M",
+    "aggregatorUrl": "https://aggregator.walrus-testnet.walrus.space/v1/blobs/DRNyZ8jO6xBPPaI8lXk8HaCARISZ0WOSU6wpQPEkC8M"
+  },
+  {
+    "walletAddress": "0xffae7e430e5cca75a00b23169f4a39cb43721fd1bad89fa3b3e1e01b12db2fe5",
+    "blobId": "DRNyZ8jO6xBPPaI8lXk8HaCARISZ0WOSU6wpQPEkC8M",
+    "timestamp": "2026-09-02T08:20:15.523Z",
+    "operations": [
+      "SplitCoins",
+      "TransferObjects"
+    ],
+    "protocols": [
+      "Sui System"
+    ],
+    "riskScore": 15,
+    "recommendation": "approve",
+    "truthScore": 95,
+    "summary": "This transaction appears to be a routine coin management operation, consolidating or splitting SUI coins. Low risk score supports a safe assessment.",
+    "explorerUrl": "https://walruscan.com/testnet/blob/DRNyZ8jO6xBPPaI8lXk8HaCARISZ0WOSU6wpQPEkC8M",
+    "aggregatorUrl": "https://aggregator.walrus-testnet.walrus.space/v1/blobs/DRNyZ8jO6xBPPaI8lXk8HaCARISZ0WOSU6wpQPEkC8M"
+  }
+]

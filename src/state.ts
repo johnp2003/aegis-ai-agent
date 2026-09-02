@@ -77,6 +77,8 @@ export const AgentState = Annotation.Root({
   explanation:    Annotation<string>,
   recommendation: Annotation<"approve" | "caution" | "reject">,
   gonkaVerification: Annotation<GonkaVerificationResult | null>,
+  walrusBlobId:   Annotation<string | null>,
+  walrusUrl:      Annotation<string | null>,
 });
 
 export type State = typeof AgentState.State;

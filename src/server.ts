@@ -7,7 +7,7 @@ import "./env.js";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { graph } from "./graph.js";
-import { getSuiMode } from "./services/index.js";
+import { getSuiMode, getWalletAudits } from "./services/index.js";
 
 const app = Fastify({ logger: true });
 
@@ -19,6 +19,15 @@ await app.register(cors, {
 app.get("/health", async () => {
   console.log("🩺 [health] Health check ping received");
   return { ok: true, suiMode: getSuiMode() };
+});
+
+app.get<{
+  Params: { walletAddress: string };
+}>("/audits/:walletAddress", async (req, reply) => {
+  const { walletAddress } = req.params;
+  const audits = await getWalletAudits(walletAddress);
+  console.log(`📋 [/audits] Retrieved ${audits.length} Walrus audits for ${walletAddress?.slice(0, 10)}...`);
+  return reply.send({ walletAddress, count: audits.length, audits });
 });
 
 app.post<{
@@ -62,6 +71,8 @@ app.post<{
       planReasoning: result.planReasoning,
       planSource: result.planSource,
       gonkaVerification: result.gonkaVerification,
+      walrusBlobId: result.walrusBlobId,
+      walrusUrl: result.walrusUrl,
     });
   } catch (err) {
     console.error("❌ [/analyze] Execution failed:", err);
@@ -262,6 +273,22 @@ app.post<{
             : "Explanation synthesized.",
           verbDone: "verified on gonka network",
         });
+
+        if (nodeOutput?.walrusBlobId) {
+          sendEvent({
+            type: "tool_start",
+            tool: "walrus_storage",
+            thought: "Publishing tamper-proof security audit dossier to Walrus decentralized storage...",
+            action: "Decentralized audit archiving",
+            verbRunning: "archiving on walrus...",
+          });
+          sendEvent({
+            type: "tool_end",
+            tool: "walrus_storage",
+            observation: `Immutable audit dossier archived on Walrus. Blob: ${nodeOutput.walrusBlobId.slice(0, 12)}…`,
+            verbDone: "archived on walrus storage",
+          });
+        }
       }
     }
 
@@ -283,6 +310,8 @@ app.post<{
         planReasoning: finalState.planReasoning,
         planSource: finalState.planSource,
         gonkaVerification: finalState.gonkaVerification,
+        walrusBlobId: finalState.walrusBlobId,
+        walrusUrl: finalState.walrusUrl,
       },
     });
 
