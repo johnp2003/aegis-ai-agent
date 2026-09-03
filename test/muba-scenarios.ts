@@ -10,7 +10,7 @@
 
 import { Transaction } from "@mysten/sui/transactions";
 
-const SERVER = process.env.AGENT_URL ?? "http://localhost:3001";
+const SERVER = process.env.AGENT_SERVER_URL ?? "http://localhost:3001";
 
 // Same synthetic package IDs the muba-hackathon demo uses.
 const CETUS_PACKAGE =
@@ -65,10 +65,10 @@ const SCENARIOS: {
   expected: "approve" | "caution" | "reject";
   build: (sender: string) => Transaction;
 }[] = [
-  { id: "safe-transfer", expected: "approve", build: buildSafeTransfer },
-  { id: "cetus-swap", expected: "approve", build: buildCetusSwap },
-  { id: "wallet-drain", expected: "reject", build: buildWalletDrain },
-];
+    { id: "safe-transfer", expected: "approve", build: buildSafeTransfer },
+    { id: "cetus-swap", expected: "approve", build: buildCetusSwap },
+    { id: "wallet-drain", expected: "reject", build: buildWalletDrain },
+  ];
 
 let failures = 0;
 

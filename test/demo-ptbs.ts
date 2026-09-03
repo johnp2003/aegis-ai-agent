@@ -128,7 +128,7 @@ interface AnalyzeResponse {
   planSource: string;
 }
 
-const SERVER_URL = process.env.SERVER_URL ?? "http://localhost:3001";
+const AGENT_SERVER_URL = process.env.AGENT_SERVER_URL ?? "http://localhost:3001";
 // The deterministic path must stay under 3s. When the plan came from the
 // LLM (AGENT_REASONING=full), the analysis includes two free-tier Gemini
 // round trips at ~1.5–2s each, so the budget is wider.
@@ -165,7 +165,7 @@ async function test() {
 
   for (const [label, body] of Object.entries(DEMO_PTBS)) {
     const t0 = Date.now();
-    const res = await fetch(`${SERVER_URL}/analyze`, {
+    const res = await fetch(`${AGENT_SERVER_URL}/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
