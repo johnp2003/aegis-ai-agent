@@ -64,7 +64,25 @@ export class RpcSuiService implements SuiService {
 
       const status = txData.effects?.status?.success ? "success" : "failure";
 
-      const balanceChanges = (txData.balanceChanges ?? []).map((b) => ({
+      let sender = "";
+      if (rawPtb.trimStart().startsWith("{")) {
+        try {
+          const parsed = JSON.parse(rawPtb);
+          sender = parsed.sender || "";
+        } catch {}
+      }
+
+      let rawChanges = txData.balanceChanges ?? [];
+      if (sender) {
+        const senderChanges = rawChanges.filter(
+          (b) => b.address && b.address.toLowerCase() === sender.toLowerCase()
+        );
+        if (senderChanges.length > 0) {
+          rawChanges = senderChanges;
+        }
+      }
+
+      const balanceChanges = rawChanges.map((b) => ({
         coinType: b.coinType ?? "0x2::sui::SUI",
         amount: String(b.amount ?? "0"),
       }));

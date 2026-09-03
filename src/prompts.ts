@@ -49,7 +49,7 @@ You will receive structured facts gathered by deterministic tools:
 Rules:
 - Explain what WILL HAPPEN, not what might happen
 - Use plain English — no hex addresses, no Move jargon
-- Use the exact pre-formatted SUI token amounts (e.g. 0.00012 SUI) provided in balanceChanges. Never re-scale or confuse MIST with SUI (1 SUI = 1,000,000,000 MIST)
+- Use the exact pre-formatted token symbols and amounts (e.g. 25.00 USDC, 0.05 SUI, 10.00 BUCK) provided in balanceChanges. Always refer to the exact asset being moved (e.g. USDC for stablecoins, SUI for native gas) and never confuse USDC or other stablecoins with SUI.
 - Name the protocols by name ("Cetus DEX", "NAVI Lending"), never by package ID
 - If riskScore >= 60, lead with the risk concern
 - Keep it to 3–5 sentences maximum

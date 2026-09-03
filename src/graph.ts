@@ -232,6 +232,8 @@ function formatBalanceChangesForPrompt(
   if (!changes || changes.length === 0) return [];
   return changes.map((c) => {
     const isSui = /^0x0*2::sui::SUI$/i.test(c.coinType) || c.coinType === "SUI";
+    const isUsdc = /usdc/i.test(c.coinType);
+    const isBuck = /buck/i.test(c.coinType);
     const rawVal = Number(c.amount);
     if (isSui) {
       const suiAmount = rawVal / 1_000_000_000;
@@ -241,9 +243,24 @@ function formatBalanceChangesForPrompt(
         formattedAmount: `${suiAmount > 0 ? "+" : ""}${suiAmount.toFixed(6)} SUI`,
       };
     }
+    if (isUsdc) {
+      const usdcAmount = rawVal / 1_000_000;
+      return {
+        token: "USDC",
+        formattedAmount: `${usdcAmount > 0 ? "+" : ""}${usdcAmount.toFixed(4)} USDC`,
+      };
+    }
+    if (isBuck) {
+      const buckAmount = rawVal / 1_000_000_000;
+      return {
+        token: "BUCK",
+        formattedAmount: `${buckAmount > 0 ? "+" : ""}${buckAmount.toFixed(4)} BUCK`,
+      };
+    }
+    const tokenName = c.coinType.split("::").pop() || c.coinType;
     return {
-      token: c.coinType,
-      formattedAmount: `${rawVal > 0 ? "+" : ""}${c.amount}`,
+      token: tokenName,
+      formattedAmount: `${rawVal > 0 ? "+" : ""}${c.amount} ${tokenName}`,
     };
   });
 }
