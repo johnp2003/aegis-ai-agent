@@ -61,6 +61,7 @@ Signing Web3 transactions blindly leads to lost funds. On Sui, this is driven by
 - 💬 **Plain-English explanations, grounded in facts** — the prompt explicitly forbids inventing facts, mandates correct SUI/MIST unit formatting, and requires naming protocols by name, not package ID.
 - 🛟 **Fails safe, never fails silent** — every LLM call, every RPC call, and every vector search has a deterministic fallback path; the pipeline never crashes mid-analysis.
 - 🌊 **Streaming, step-by-step transparency** — `/analyze-stream` emits SSE frames for every tool as it runs (`tool_start`/`tool_end`/`thought`), so the calling UI can show its work in real time instead of a blank spinner.
+- 🔑 **zkLogin & Sponsored Transactions (Enoki)** — Seamless Web2 social login via zkLogin paired with Enoki sponsored gas pools so users can onboard and transact completely gasless without holding SUI.
 - ⚡ **Low-latency execution** — thinking tokens are disabled where they don't add value, and network calls (dry-run, history, vector search, parallel model inference) execute concurrently.
 
 ## ⚙️ How It Works
