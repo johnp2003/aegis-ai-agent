@@ -183,7 +183,25 @@ const CHECKS: Record<string, (d: AnalyzeResponse) => string[]> = {
   ],
 };
 
+async function waitForServer(): Promise<void> {
+  process.stdout.write("Connecting to AI Agent server...");
+  for (let i = 0; i < 30; i++) {
+    try {
+      const res = await fetch(`${AGENT_SERVER_URL}/health`);
+      if (res.ok) {
+        console.log(" connected! 🚀\n");
+        return;
+      }
+    } catch {
+      process.stdout.write(".");
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new Error(`Could not connect to ${AGENT_SERVER_URL} within 30 seconds`);
+}
+
 async function test() {
+  await waitForServer();
   let failed = false;
 
   for (const [label, body] of Object.entries(DEMO_TXS)) {
