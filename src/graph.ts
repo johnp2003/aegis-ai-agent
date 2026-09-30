@@ -1,5 +1,5 @@
 /**
- * The Sui Copilot graph — a StateGraph with a single constrained routing
+ * The Solana Copilot graph — a StateGraph with a single constrained routing
  * decision:
  *
  *   START → parse → lookup → plan ──┬────────────→ simulate ──┐
@@ -11,21 +11,16 @@
  *
  * The plan node is the LLM's only routing decision, and it is constrained to
  * a zod enum of known steps ("simulate", "wallet_history", "vector_search") —
- * it cannot invent steps or call tools. A deterministic heuristic produces the same plan when
- * the LLM errors out, and AGENT_REASONING=lite bypasses the plan-node LLM
- * call entirely. Everything else runs in a fixed order over structured facts
- * produced by the deterministic tools; only `plan` and `explain` touch the
- * LLM.
+ * it cannot invent steps or call tools.
  */
 
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 import { AgentState, Protocol, SimResult, State } from "./state.js";
-import { parsePtb, dryRun, lookupProtocol, scoreRisk, getHistory, vectorSearch } from "./tools.js";
+import { parseTransaction, dryRun, lookupProtocol, scoreRisk, getHistory, vectorSearch } from "./tools.js";
 import { SYSTEM_PROMPT, PLAN_PROMPT } from "./prompts.js";
 import { runGonkaExplainVerification, publishAuditToWalrus } from "./services/index.js";
-
 
 // Created lazily so env vars are loaded (src/env.ts) before the key is read.
 let llm: ChatGoogleGenerativeAI | null = null;
@@ -34,8 +29,6 @@ function getLlm(): ChatGoogleGenerativeAI {
     llm = new ChatGoogleGenerativeAI({
       model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
       temperature: 0,
-      // Explanations don't need reasoning tokens, and thinking (on by default
-      // for gemini-2.5-flash) blows the <3s latency budget.
       thinkingConfig: { thinkingBudget: 0 },
     });
   }
@@ -45,30 +38,41 @@ function getLlm(): ChatGoogleGenerativeAI {
 // ── node implementations ──────────────────────────────────────────
 
 async function parseNode(state: State) {
-  const result = (await parsePtb.invoke({ rawPtb: state.rawPtb })) as {
+  const raw = state.rawTransaction || state.rawPtb;
+  const result = (await parseTransaction.invoke({ rawTransaction: raw })) as {
     operations: string[];
-    packageIds: string[];
+    programIds: string[];
   };
-  return { operations: result.operations, packageIds: result.packageIds };
+  return {
+    operations: result.operations,
+    programIds: result.programIds,
+    packageIds: result.programIds, // backward compatibility
+  };
 }
 
 async function lookupNode(state: State) {
+  const ids = state.programIds || state.packageIds || [];
   const protocols = (await lookupProtocol.invoke({
-    packageIds: state.packageIds ?? [],
+    programIds: ids,
   })) as Protocol[];
   return { protocols };
 }
 
 async function historyNode(state: State) {
-  console.log(`[node:fetch_history] Executing history lookup for wallet: ${state.walletAddress}`);
+  console.log(`[node:fetch_history] Executing history lookup for wallet: ${state.walletAddress} on ${state.cluster || "mainnet"}`);
   const history = (await getHistory.invoke({
     walletAddress: state.walletAddress,
+    cluster: state.cluster,
   })) as string;
   return { history };
 }
 
 async function simulateNode(state: State) {
-  const result = (await dryRun.invoke({ rawPtb: state.rawPtb })) as SimResult;
+  const raw = state.rawTransaction || state.rawPtb;
+  const result = (await dryRun.invoke({
+    rawTransaction: raw,
+    cluster: state.cluster,
+  })) as SimResult;
   return { simulation: result };
 }
 
@@ -80,33 +84,40 @@ const PlanSchema = z.object({
 });
 
 const SKIPPED_HISTORY =
-  "Skipped — transaction involves only well-known audited protocols.";
+  "Skipped — transaction involves only well-known audited Solana programs.";
 
 function heuristicPlan(state: State) {
   const steps = ["simulate"];
   const riskyProtocol = (state.protocols ?? []).some(
     (p) => p.name === "Unknown" || p.audited === false
   );
-  const transfersOut = (state.operations ?? []).includes("transfer_objects");
-  const hasUnknownPackages = (state.protocols ?? []).some(
+  const transfersOrDrains = (state.operations ?? []).some((op) => {
+    const o = op.toLowerCase();
+    return (
+      o.includes("transfer") ||
+      o.includes("setauthority") ||
+      o.includes("approve") ||
+      o.includes("closeaccount")
+    );
+  });
+  const hasUnknownPrograms = (state.protocols ?? []).some(
     (p) => p.name === "Unknown"
   );
 
   let planReasoning: string;
-  if (riskyProtocol || transfersOut) {
+  if (riskyProtocol || transfersOrDrains) {
     steps.push("wallet_history");
     planReasoning = riskyProtocol
-      ? "Unknown or unaudited protocol involved — wallet history needed."
-      : "Objects are transferred out of the wallet — wallet history needed.";
+      ? "Unknown or unaudited program involved — wallet history needed."
+      : "Assets, delegations, or authorities modified — wallet history needed.";
   } else {
     planReasoning =
-      "All protocols are known and audited and nothing leaves the wallet — skipping wallet history.";
+      "All programs are known and audited and no risky authority changes — skipping wallet history.";
   }
 
-  if (hasUnknownPackages) {
+  if (hasUnknownPrograms) {
     steps.push("vector_search");
-    planReasoning +=
-      "; checking known exploit patterns for the unknown package";
+    planReasoning += "; checking known Solana exploit patterns for unknown program";
   }
 
   return {
@@ -128,22 +139,27 @@ async function planNode(state: State) {
   } else {
     try {
       const protocols = state.protocols ?? [];
+      const operations = state.operations ?? [];
       const facts = {
-        operations: state.operations,
+        operations,
         protocols: protocols.map((p) => ({
           name: p.name,
           category: p.category,
           audited: p.audited,
         })),
-        // Precomputed decision predicates — flash-lite applies an explicit
-        // rule over booleans far more reliably than it derives them itself.
         allProtocolsKnownAndAudited:
           protocols.length > 0 &&
           protocols.every((p) => p.name !== "Unknown" && p.audited),
-        includesTransferObjects: (state.operations ?? []).includes(
-          "transfer_objects"
-        ),
-        hasUnknownPackages: protocols.some((p) => p.name === "Unknown"),
+        includesTransferOrDrain: operations.some((op) => {
+          const o = op.toLowerCase();
+          return (
+            o.includes("transfer") ||
+            o.includes("setauthority") ||
+            o.includes("approve") ||
+            o.includes("closeaccount")
+          );
+        }),
+        hasUnknownPrograms: protocols.some((p) => p.name === "Unknown"),
       };
       const result = (await getLlm()
         .withStructuredOutput(PlanSchema)
@@ -172,9 +188,6 @@ async function planNode(state: State) {
     }
   }
 
-  // The explain node always reads `history` and `similarPatterns` — when the
-  // plan skips those steps, fill in deterministic defaults so downstream
-  // nodes never see undefined.
   const defaults: { history?: string; similarPatterns?: [] } = {};
   if (!plan.plannedSteps.includes("wallet_history")) {
     defaults.history = SKIPPED_HISTORY;
@@ -185,8 +198,6 @@ async function planNode(state: State) {
   return { ...plan, ...defaults };
 }
 
-// Node is named fetch_history because LangGraph forbids a node name that
-// collides with a state channel ("history").
 function routeAfterPlan(state: State): string[] {
   const targets = ["simulate"];
   if (state.plannedSteps?.includes("wallet_history")) {
@@ -227,40 +238,31 @@ async function riskNode(state: State) {
 }
 
 function formatBalanceChangesForPrompt(
-  changes: Array<{ coinType: string; amount: string }> | undefined
+  changes: SimResult["balanceChanges"] | undefined
 ) {
   if (!changes || changes.length === 0) return [];
   return changes.map((c) => {
-    const isSui = /^0x0*2::sui::SUI$/i.test(c.coinType) || c.coinType === "SUI";
+    const isSol = /sol/i.test(c.coinType) || c.coinType === "11111111111111111111111111111111";
     const isUsdc = /usdc/i.test(c.coinType);
-    const isBuck = /buck/i.test(c.coinType);
     const rawVal = Number(c.amount);
-    if (isSui) {
-      const suiAmount = rawVal / 1_000_000_000;
+    if (isSol) {
+      const solAmount = Math.abs(rawVal) > 1_000_000 ? rawVal / 1_000_000_000 : rawVal;
       return {
-        token: "SUI",
-        suiAmountDecimal: suiAmount,
-        formattedAmount: `${suiAmount > 0 ? "+" : ""}${suiAmount.toFixed(6)} SUI`,
+        token: "SOL",
+        solAmountDecimal: solAmount,
+        formattedAmount: `${solAmount > 0 ? "+" : ""}${solAmount.toFixed(4)} SOL`,
       };
     }
     if (isUsdc) {
-      const usdcAmount = rawVal / 1_000_000;
+      const usdcAmount = Math.abs(rawVal) > 1_000 ? rawVal / 1_000_000 : rawVal;
       return {
         token: "USDC",
-        formattedAmount: `${usdcAmount > 0 ? "+" : ""}${usdcAmount.toFixed(4)} USDC`,
+        formattedAmount: `${usdcAmount > 0 ? "+" : ""}${usdcAmount.toFixed(2)} USDC`,
       };
     }
-    if (isBuck) {
-      const buckAmount = rawVal / 1_000_000_000;
-      return {
-        token: "BUCK",
-        formattedAmount: `${buckAmount > 0 ? "+" : ""}${buckAmount.toFixed(4)} BUCK`,
-      };
-    }
-    const tokenName = c.coinType.split("::").pop() || c.coinType;
     return {
-      token: tokenName,
-      formattedAmount: `${rawVal > 0 ? "+" : ""}${c.amount} ${tokenName}`,
+      token: c.coinType,
+      formattedAmount: `${rawVal > 0 ? "+" : ""}${c.amount} ${c.coinType}`,
     };
   });
 }
@@ -281,7 +283,7 @@ async function explainNode(state: State) {
   };
 
   let explanation = "";
-  let gonkaVerification: any = null;
+  let gonkaVerification: State["gonkaVerification"] = null;
 
   // Primary: Decentralized Dual-Model Verification via Gonka Router
   if (process.env.GONKA_API_KEY) {
@@ -303,7 +305,7 @@ async function explainNode(state: State) {
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Transaction facts:\n${JSON.stringify(facts, null, 2)}\n\nExplain this transaction to a non-technical user in 3–5 sentences. Use the pre-formatted SUI token amounts (formattedAmount/suiAmountDecimal) directly.`,
+          content: `Transaction facts:\n${JSON.stringify(facts, null, 2)}\n\nExplain this Solana transaction to a non-technical user in 3–5 sentences. Use the pre-formatted token amounts (formattedAmount) directly.`,
         },
       ]);
       explanation = response.content as string;
@@ -316,7 +318,7 @@ async function explainNode(state: State) {
     }
   }
 
-  // Publish immutable security audit dossier to Walrus decentralized storage
+  // Publish immutable security audit dossier to Walrus decentralized storage (if configured)
   let walrusBlobId: string | null = null;
   let walrusUrl: string | null = null;
   try {
@@ -336,8 +338,11 @@ async function explainNode(state: State) {
       walrusBlobId = walrusRes.blobId;
       walrusUrl = walrusRes.explorerUrl;
     }
-  } catch (err: any) {
-    console.warn("[walrus] Audit publishing error:", err.message);
+  } catch (err: unknown) {
+    console.warn(
+      "[walrus] Audit publishing error:",
+      err instanceof Error ? err.message : String(err)
+    );
   }
 
   return {
@@ -354,14 +359,14 @@ function fallbackExplanation(state: State): string {
 
   const parts: string[] = [];
   parts.push(
-    `This transaction runs ${state.operations.length} operation(s)` +
+    `This Solana transaction runs ${state.operations.length} operation(s)` +
       (named.length > 0
         ? ` involving ${named.map((p) => p.name).join(", ")}.`
         : ".")
   );
   if (unknownCount > 0) {
     parts.push(
-      `It interacts with ${unknownCount} unverified contract(s) that are not in the known-protocol registry.`
+      `It interacts with ${unknownCount} unverified Solana program(s) that are not in the verified protocol registry.`
     );
   }
   if (state.riskFlags.length > 0) {
@@ -372,7 +377,7 @@ function fallbackExplanation(state: State): string {
   );
   if (exploitMatch) {
     parts.push(
-      `It closely resembles a known exploit pattern: ${exploitMatch.description}`
+      `It closely resembles a known exploit or drainer pattern: ${exploitMatch.description}`
     );
   }
   parts.push(

@@ -1,74 +1,119 @@
 [
   {
-    "packageId": "0x603912ab3714c5333b58f30523e379a87b95e975fae5e9a9c7565ed9c1b073d8",
-    "name": "Cetus",
-    "category": "DEX",
+    "programId": "11111111111111111111111111111111",
+    "packageId": "11111111111111111111111111111111",
+    "name": "Solana System Program",
+    "category": "Core",
     "audited": true,
-    "website": "https://cetus.zone",
+    "website": "https://solana.com",
     "risk": "low"
   },
   {
-    "packageId": "0xa9556bc9000000000000000000000000000000000000000000000000000000a1",
-    "name": "Cetus",
-    "category": "DEX",
+    "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "packageId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "name": "SPL Token Program",
+    "category": "Core Token",
     "audited": true,
-    "website": "https://cetus.zone",
+    "website": "https://spl.solana.com/token",
     "risk": "low"
   },
   {
-    "packageId": "0xc963eaed000000000000000000000000000000000000000000000000000000b2",
-    "name": "NAVI Protocol",
+    "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "packageId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "name": "SPL Token-2022",
+    "category": "Core Token",
+    "audited": true,
+    "website": "https://spl.solana.com/token-2022",
+    "risk": "low"
+  },
+  {
+    "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "packageId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "name": "Associated Token Account Program",
+    "category": "Core Token",
+    "audited": true,
+    "website": "https://spl.solana.com/associated-token-account",
+    "risk": "low"
+  },
+  {
+    "programId": "ComputeBudget111111111111111111111111111111",
+    "packageId": "ComputeBudget111111111111111111111111111111",
+    "name": "Compute Budget Program",
+    "category": "Core",
+    "audited": true,
+    "website": "https://solana.com",
+    "risk": "low"
+  },
+  {
+    "programId": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "packageId": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "name": "Jupiter v6",
+    "category": "DEX Aggregator",
+    "audited": true,
+    "website": "https://jup.ag",
+    "risk": "low"
+  },
+  {
+    "programId": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+    "packageId": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+    "name": "Raydium Liquidity Pool V4",
+    "category": "DEX",
+    "audited": true,
+    "website": "https://raydium.io",
+    "risk": "low"
+  },
+  {
+    "programId": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+    "packageId": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+    "name": "Raydium CLMM",
+    "category": "DEX",
+    "audited": true,
+    "website": "https://raydium.io",
+    "risk": "low"
+  },
+  {
+    "programId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "packageId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "name": "Orca Whirlpool",
+    "category": "DEX",
+    "audited": true,
+    "website": "https://orca.so",
+    "risk": "low"
+  },
+  {
+    "programId": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+    "packageId": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+    "name": "Kamino Lending",
     "category": "Lending",
     "audited": true,
-    "website": "https://naviprotocol.io",
+    "website": "https://kamino.finance",
     "risk": "low"
   },
   {
-    "packageId": "0xd1e2f3a4000000000000000000000000000000000000000000000000000000c3",
-    "name": "Scallop",
+    "programId": "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",
+    "packageId": "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD",
+    "name": "Marinade Staking",
+    "category": "Liquid Staking",
+    "audited": true,
+    "website": "https://marinade.finance",
+    "risk": "low"
+  },
+  {
+    "programId": "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",
+    "packageId": "MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA",
+    "name": "Marginfi",
     "category": "Lending",
     "audited": true,
-    "website": "https://scallop.io",
+    "website": "https://marginfi.com",
     "risk": "low"
   },
   {
-    "packageId": "0xe2f3a4b5000000000000000000000000000000000000000000000000000000d4",
-    "name": "Aftermath Finance",
-    "category": "DEX",
+    "programId": "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",
+    "packageId": "So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo",
+    "name": "Solend",
+    "category": "Lending",
     "audited": true,
-    "website": "https://aftermath.finance",
-    "risk": "low"
-  },
-  {
-    "packageId": "0xf3a4b5c6000000000000000000000000000000000000000000000000000000e5",
-    "name": "Bucket Protocol",
-    "category": "Stablecoin",
-    "audited": false,
-    "website": "https://bucketprotocol.io",
-    "risk": "medium"
-  },
-  {
-    "packageId": "0x6bbdf09f9fa0baa1524080a5b8991042e95061c4e1206217279aec51ba08edf7",
-    "name": "Cetus CLMM",
-    "category": "DEX",
-    "audited": true,
-    "website": "https://cetus.zone",
-    "risk": "low"
-  },
-  {
-    "packageId": "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29",
-    "name": "Circle USDC",
-    "category": "Stablecoin",
-    "audited": true,
-    "website": "https://circle.com",
-    "risk": "low"
-  },
-  {
-    "packageId": "0xa1ec7fc00cd6f884a1a3113b2ffe505e7723734ec636adf858e17b625b0380dd",
-    "name": "Circle USDC",
-    "category": "Stablecoin",
-    "audited": true,
-    "website": "https://circle.com",
+    "website": "https://solend.fi",
     "risk": "low"
   }
 ]

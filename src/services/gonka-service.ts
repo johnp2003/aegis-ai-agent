@@ -23,14 +23,16 @@ const VERDICT_SEVERITY: Record<"approve" | "caution" | "reject", number> = {
   reject: 3,
 };
 
+import { SimilarPattern } from "../state.js";
+
 export interface FactsPayload {
   operations: string[];
   protocols: Array<{ name: string; category: string; audited: boolean }>;
-  balanceChanges: any[];
+  balanceChanges: Array<Record<string, unknown>>;
   riskScore: number;
   riskFlags: string[];
   walletHistory?: string;
-  similarPatterns?: any[];
+  similarPatterns?: SimilarPattern[];
 }
 
 function getApiKey(): string {
@@ -155,7 +157,7 @@ async function queryGonkaModel(
       throw new Error(`Gonka API error ${res.status} [${model}]: ${errText.slice(0, 200)}`);
     }
 
-    const data: any = await res.json();
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content ?? "";
     const parsed = parseModelJson(content);
 

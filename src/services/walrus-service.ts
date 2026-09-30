@@ -6,19 +6,23 @@ import { MongoClient, type Collection } from "mongodb";
 // Ensure reliable SRV resolution across all ISPs & OS environments
 try {
   dns.setServers(["8.8.8.8", "1.1.1.1"]);
-} catch {}
+} catch {
+  // Ignore DNS override errors
+}
 
 export interface WalrusAuditPayload {
   timestamp: string;
   sender?: string;
   operations: string[];
-  protocols: any[];
-  simulation: any;
+  protocols: Array<{ name?: string }>;
+  simulation: unknown;
   riskScore: number;
   riskFlags: string[];
   recommendation: string;
   explanation: string;
-  gonkaVerification?: any;
+  gonkaVerification?: {
+    consensusTruthScore?: number;
+  } | null;
 }
 
 export interface WalrusPublishResult {
@@ -44,7 +48,7 @@ export interface WalrusAuditRecord {
   aggregatorUrl: string;
 }
 
-const AUDITS_FILE = path.join(process.cwd(), "data", "wallet_audits.json");
+const AUDITS_FILE = path.resolve(process.cwd(), "data/wallet_audits.json");
 
 function loadAuditsFromDisk(): WalrusAuditRecord[] {
   try {
@@ -52,8 +56,8 @@ function loadAuditsFromDisk(): WalrusAuditRecord[] {
       const raw = fs.readFileSync(AUDITS_FILE, "utf-8");
       return JSON.parse(raw);
     }
-  } catch (err: any) {
-    console.warn("[walrus] Error reading wallet_audits.json:", err.message);
+  } catch (err: unknown) {
+    console.warn("[walrus] Error reading wallet_audits.json:", err instanceof Error ? err.message : String(err));
   }
   return [];
 }
@@ -63,8 +67,8 @@ function persistAuditsToDisk(records: WalrusAuditRecord[]): void {
     const dir = path.dirname(AUDITS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(AUDITS_FILE, JSON.stringify(records, null, 2), "utf-8");
-  } catch (err: any) {
-    console.warn("[walrus] Error writing wallet_audits.json:", err.message);
+  } catch (err: unknown) {
+    console.warn("[walrus] Error writing wallet_audits.json:", err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -95,8 +99,9 @@ export async function getMongoCollection(): Promise<Collection<WalrusAuditRecord
     mongoCollection = db.collection<WalrusAuditRecord>("wallet_audits");
     mongoCollection.createIndex({ walletAddress: 1, timestamp: -1 }).catch(() => {});
     return mongoCollection;
-  } catch (err: any) {
-    console.warn(`🍃 [mongodb] Connection warning (${err.message}). Using local fallback.`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`🍃 [mongodb] Connection warning (${msg}). Using local fallback.`);
     return null;
   } finally {
     mongoConnecting = false;
@@ -117,8 +122,8 @@ export async function saveWalletAudit(record: WalrusAuditRecord): Promise<void> 
         `🍃 [mongodb] Audit record saved to MongoDB Atlas for ${record.walletAddress.slice(0, 10)}... (blob: ${record.blobId.slice(0, 10)}...)`
       );
     }
-  } catch (err: any) {
-    console.warn("[mongodb] Error saving to MongoDB:", err.message);
+  } catch (err: unknown) {
+    console.warn("[mongodb] Error saving to MongoDB:", err instanceof Error ? err.message : String(err));
   }
 
   // 2. Local fallback sync
@@ -142,14 +147,15 @@ export async function getWalletAudits(walletAddress: string): Promise<WalrusAudi
         .toArray();
 
       if (records && records.length > 0) {
-        return records.map((r: any) => {
+        return records.map((r) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { _id, ...rest } = r;
           return rest as WalrusAuditRecord;
         });
       }
     }
-  } catch (err: any) {
-    console.warn("[mongodb] Query error, falling back to local store:", err.message);
+  } catch (err: unknown) {
+    console.warn("[mongodb] Query error, falling back to local store:", err instanceof Error ? err.message : String(err));
   }
 
   // Local fallback
@@ -190,7 +196,11 @@ export async function publishAuditToWalrus(
       return null;
     }
 
-    const data: any = await res.json();
+    const data = (await res.json()) as {
+      newlyCreated?: { blobObject?: { blobId?: string }; cost?: number };
+      alreadyCertified?: { blobId?: string };
+      blobId?: string;
+    };
     const blobId =
       data.newlyCreated?.blobObject?.blobId ??
       data.alreadyCertified?.blobId ??
@@ -212,7 +222,7 @@ export async function publishAuditToWalrus(
 
     // Index audit by wallet address for the frontend dashboard
     if (payload.sender) {
-      const protocols = (payload.protocols || []).map((p) => p.name || p);
+      const protocols = (payload.protocols || []).map((p) => p.name || String(p));
       const truthScore = Number(payload.gonkaVerification?.consensusTruthScore) || 75;
       saveWalletAudit({
         walletAddress: payload.sender,
@@ -221,7 +231,10 @@ export async function publishAuditToWalrus(
         operations: payload.operations || [],
         protocols,
         riskScore: payload.riskScore,
-        recommendation: (payload.recommendation as any) || "approve",
+        recommendation:
+          payload.recommendation === "reject" || payload.recommendation === "caution"
+            ? payload.recommendation
+            : "approve",
         truthScore,
         summary: payload.explanation?.slice(0, 150) || "Transaction analyzed by AEGIS",
         explorerUrl,
@@ -236,8 +249,9 @@ export async function publishAuditToWalrus(
       costMist,
       epochs: 1,
     };
-  } catch (err: any) {
-    console.warn(`[walrus] Publishing to Walrus timed out or failed (${err.message}). Continuing gracefully.`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[walrus] Publishing to Walrus timed out or failed (${msg}). Continuing gracefully.`);
     return null;
   } finally {
     clearTimeout(timer);

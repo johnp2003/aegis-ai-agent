@@ -9,7 +9,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const collection = process.env.QDRANT_COLLECTION ?? "ptb_patterns";
+  const collection = process.env.QDRANT_COLLECTION ?? "solana_patterns";
 
   const qdrant = new QdrantClient({
     url: process.env.QDRANT_URL,
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     model: "gemini-embedding-001",
   });
 
-  const query = "unregistered contract requesting NFT custody transfer and capability deletion";
+  const query = "unverified contract requesting SetAuthority takeover and token approval delegate drain";
   console.log(`Query: ${query}`);
 
   const vector = await embeddings.embedQuery(query);

@@ -7,18 +7,27 @@
 import { Annotation } from "@langchain/langgraph";
 
 export interface SimResult {
-  status: string;
-  balanceChanges: { coinType: string; amount: string }[];
+  status: "success" | "failure" | "error";
+  balanceChanges: {
+    coinType: string; // e.g. "SOL", "USDC", or token mint
+    amount: string;   // raw amount or formatted decimal
+    symbol?: string;
+    account?: string;
+  }[];
   objectChanges: string[];
   gasUsed: { computationCost: string; storageCost: string };
+  computeUnits?: number;
+  logs?: string[];
   events: string[];
 }
 
 export interface Protocol {
-  packageId: string;
+  programId: string;
+  packageId?: string; // alias for backwards compatibility
   name: string;
   category: string;
   audited: boolean;
+  website?: string;
   risk: "low" | "medium" | "high" | "unknown";
 }
 
@@ -55,12 +64,15 @@ export interface GonkaVerificationResult {
 
 export const AgentState = Annotation.Root({
   // inputs
-  rawPtb:         Annotation<string>,
+  rawTransaction: Annotation<string>,
+  rawPtb:         Annotation<string>, // alias for backwards compatibility
   walletAddress:  Annotation<string>,
+  cluster:        Annotation<"mainnet" | "devnet">,
 
   // filled by tools
   operations:     Annotation<string[]>,
-  packageIds:     Annotation<string[]>,
+  programIds:     Annotation<string[]>,
+  packageIds:     Annotation<string[]>, // alias for backwards compatibility
   simulation:     Annotation<SimResult | null>,
   protocols:      Annotation<Protocol[]>,
   history:        Annotation<string>,
@@ -82,4 +94,3 @@ export const AgentState = Annotation.Root({
 });
 
 export type State = typeof AgentState.State;
-

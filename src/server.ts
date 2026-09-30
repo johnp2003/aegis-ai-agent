@@ -7,7 +7,7 @@ import "./env.js";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { graph } from "./graph.js";
-import { getSuiMode, getWalletAudits } from "./services/index.js";
+import { getSolanaCluster, getWalletAudits } from "./services/index.js";
 
 const app = Fastify({ logger: true });
 
@@ -18,7 +18,7 @@ await app.register(cors, {
 
 app.get("/health", async () => {
   console.log("🩺 [health] Health check ping received");
-  return { ok: true, suiMode: getSuiMode() };
+  return { ok: true, solanaCluster: getSolanaCluster() };
 });
 
 app.get<{
@@ -30,26 +30,42 @@ app.get<{
   return reply.send({ walletAddress, count: audits.length, audits });
 });
 
-app.post<{
-  Body: { rawPtb: string; walletAddress: string };
-}>("/analyze", async (req, reply) => {
-  const { rawPtb, walletAddress } = req.body ?? {};
+interface AnalyzeRequestBody {
+  rawTransaction?: string;
+  rawPtb?: string; // alias for backwards compatibility
+  walletAddress: string;
+  cluster?: "mainnet" | "devnet";
+}
 
-  if (!rawPtb || !walletAddress) {
-    console.warn("⚠️ [/analyze] Missing rawPtb or walletAddress in request body");
+app.post<{
+  Body: AnalyzeRequestBody;
+}>("/analyze", async (req, reply) => {
+  const { rawTransaction, rawPtb, walletAddress, cluster } = req.body ?? {};
+  const raw = rawTransaction || rawPtb;
+
+  if (!raw || !walletAddress) {
+    console.warn("⚠️ [/analyze] Missing rawTransaction (or rawPtb) or walletAddress in request body");
     return reply
       .status(400)
-      .send({ error: "rawPtb and walletAddress are required" });
+      .send({ error: "rawTransaction and walletAddress are required" });
   }
 
+  const selectedCluster = cluster || getSolanaCluster();
+
   console.log(`\n======================================================`);
-  console.log(`📥 [/analyze] New Transaction Analysis Request`);
-  console.log(`👛 Wallet: ${walletAddress}`);
-  console.log(`📦 PTB Payload Length: ${rawPtb.length} chars`);
+  console.log(`📥 [/analyze] New Solana Transaction Analysis Request`);
+  console.log(`👛 Wallet : ${walletAddress}`);
+  console.log(`🌐 Cluster: ${selectedCluster.toUpperCase()}`);
+  console.log(`📦 Payload: ${raw.length} chars`);
 
   try {
     const started = Date.now();
-    const result = await graph.invoke({ rawPtb, walletAddress });
+    const result = await graph.invoke({
+      rawTransaction: raw,
+      rawPtb: raw,
+      walletAddress,
+      cluster: selectedCluster,
+    });
     const elapsed = Date.now() - started;
 
     console.log(`🛡️ [/analyze] Analysis Complete in ${elapsed}ms:`);
@@ -85,21 +101,25 @@ app.post<{
 });
 
 app.post<{
-  Body: { rawPtb: string; walletAddress: string };
+  Body: AnalyzeRequestBody;
 }>("/analyze-stream", async (req, reply) => {
-  const { rawPtb, walletAddress } = req.body ?? {};
+  const { rawTransaction, rawPtb, walletAddress, cluster } = req.body ?? {};
+  const raw = rawTransaction || rawPtb;
 
-  if (!rawPtb || !walletAddress) {
-    console.warn("⚠️ [/analyze-stream] Missing rawPtb or walletAddress");
+  if (!raw || !walletAddress) {
+    console.warn("⚠️ [/analyze-stream] Missing rawTransaction (or rawPtb) or walletAddress");
     return reply
       .status(400)
-      .send({ error: "rawPtb and walletAddress are required" });
+      .send({ error: "rawTransaction and walletAddress are required" });
   }
 
+  const selectedCluster = cluster || getSolanaCluster();
+
   console.log(`\n======================================================`);
-  console.log(`🌊 [/analyze-stream] New SSE Stream Session`);
-  console.log(`👛 Wallet: ${walletAddress}`);
-  console.log(`📦 PTB Payload Length: ${rawPtb.length} chars`);
+  console.log(`🌊 [/analyze-stream] New Solana SSE Stream Session`);
+  console.log(`👛 Wallet : ${walletAddress}`);
+  console.log(`🌐 Cluster: ${selectedCluster.toUpperCase()}`);
+  console.log(`📦 Payload: ${raw.length} chars`);
 
   reply.raw.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -115,51 +135,61 @@ app.post<{
   try {
     sendEvent({
       type: "tool_start",
-      tool: "parse_ptb",
-      thought: "Deconstructing raw PTB payload to isolate Move commands and recipient addresses before any execution.",
-      action: "Extracting Move operations & targets",
-      verbRunning: "parsing ptb...",
+      tool: "parse_transaction",
+      thought: "Deconstructing raw Solana transaction payload to inspect instruction targets, programs, and delegate accounts before execution.",
+      action: "Extracting Solana instructions & programs",
+      verbRunning: "parsing transaction...",
     });
 
-    const stream = await graph.stream({ rawPtb, walletAddress }, { streamMode: "updates" });
+    const stream = await graph.stream(
+      {
+        rawTransaction: raw,
+        rawPtb: raw,
+        walletAddress,
+        cluster: selectedCluster,
+      },
+      { streamMode: "updates" }
+    );
 
-    let finalState: Record<string, any> = {};
+    let finalState: Record<string, unknown> = {};
 
     for await (const chunk of stream) {
       const nodeName = Object.keys(chunk)[0];
-      const nodeOutput = (chunk as Record<string, any>)[nodeName];
+      const nodeOutput = (chunk as Record<string, unknown>)[nodeName] as
+        | Record<string, unknown>
+        | undefined;
       finalState = { ...finalState, ...nodeOutput };
 
       if (nodeName === "parse") {
-        const ops = nodeOutput?.operations ?? [];
+        const ops = (nodeOutput?.operations as string[]) ?? [];
         console.log(`   [1. Parse]       Extracted ops: ${ops.join(", ") || "None"}`);
         sendEvent({
           type: "tool_end",
-          tool: "parse_ptb",
-          observation: ops.length > 0 ? `Identified: ${ops.join(", ")}. No unknown package calls.` : "No commands found in transaction.",
-          verbDone: "parsed ptb",
+          tool: "parse_transaction",
+          observation: ops.length > 0 ? `Identified: ${ops.join(", ")}.` : "No instructions found in transaction.",
+          verbDone: "parsed transaction",
         });
         sendEvent({
           type: "tool_start",
           tool: "lookup_protocol",
-          thought: "Checking target package IDs against audited Sui protocol registries to verify contract provenance.",
+          thought: "Checking program IDs against verified Solana protocol registries to ensure provenance.",
           action: "Checking protocol registries",
           verbRunning: "checking protocol registries...",
         });
       } else if (nodeName === "lookup") {
-        const protos = nodeOutput?.protocols ?? [];
-        const names = protos.map((p: any) => p.name).join(", ");
-        console.log(`   [2. Lookup]      Audited protocols: ${names || "None (direct wallet transfer)"}`);
+        const protos = (nodeOutput?.protocols as Array<{ name: string }>) ?? [];
+        const names = protos.map((p) => p.name).join(", ");
+        console.log(`   [2. Lookup]      Audited programs: ${names || "None (direct transfer)"}`);
         sendEvent({
           type: "tool_end",
           tool: "lookup_protocol",
-          observation: protos.length > 0 ? `Verified: ${names} (audited).` : "Direct wallet transfer — no third-party contract risk.",
+          observation: protos.length > 0 ? `Verified: ${names}.` : "Direct transfer — no third-party program risk.",
           verbDone: "checked protocol registries",
         });
         sendEvent({
           type: "tool_start",
           tool: "plan_agent",
-          thought: "Planning safety graph routing and checks based on extracted commands.",
+          thought: "Routing dynamic security pipeline based on instructions and program risk.",
           action: "Routing security pipeline",
           verbRunning: "routing security pipeline...",
         });
@@ -178,7 +208,7 @@ app.post<{
         sendEvent({
           type: "tool_end",
           tool: "plan_agent",
-          thought: reasoning || "Planning safety graph routing based on extracted commands.",
+          thought: reasoning || "Planning safety graph routing based on extracted instructions.",
           observation: `Pipeline: ${steps.join(" → ")}.`,
           verbDone: "routed security pipeline",
         });
@@ -187,15 +217,15 @@ app.post<{
         sendEvent({
           type: "tool_start",
           tool: "dry_run_rpc",
-          thought: "Dry-running transaction against live Sui RPC node to calculate balance changes.",
-          action: "Simulating on Sui node",
-          verbRunning: "simulating on sui rpc...",
+          thought: `Dry-running transaction against live Solana ${selectedCluster.toUpperCase()} RPC node to calculate compute units & balance changes.`,
+          action: "Simulating on Solana node",
+          verbRunning: "simulating on solana rpc...",
         });
         if (steps.includes("wallet_history")) {
           sendEvent({
             type: "tool_start",
             tool: "fetch_history",
-            thought: walletAddress ? `Inspecting wallet activity for ${walletAddress.slice(0, 8)}... to check velocity.` : "Checking counterparty velocity to detect drainer patterns.",
+            thought: walletAddress ? `Inspecting wallet activity for ${walletAddress.slice(0, 8)}... to verify history.` : "Checking account history to detect drainer targets.",
             action: "Inspecting wallet history",
             verbRunning: "inspecting wallet history...",
           });
@@ -204,26 +234,26 @@ app.post<{
           sendEvent({
             type: "tool_start",
             tool: "vector_search",
-            thought: "Comparing transaction operations against known exploit patterns and attack signatures.",
+            thought: "Comparing transaction operations against known Solana exploit patterns and attack signatures.",
             action: "Scanning known exploit patterns",
             verbRunning: "scanning known exploit patterns...",
           });
         }
       } else if (nodeName === "simulate") {
         const status = nodeOutput?.simulation?.status ?? "success";
-        console.log(`   [4. Simulate]    Status: ${status} (Gas: ${nodeOutput?.simulation?.gasUsed ?? "N/A"})`);
+        console.log(`   [4. Simulate]    Status: ${status} (Compute Units: ${nodeOutput?.simulation?.computeUnits ?? "N/A"})`);
         sendEvent({
           type: "tool_end",
           tool: "dry_run_rpc",
-          observation: status === "success" ? "Simulation succeeded. Zero VM errors detected." : `Simulation status: ${status}.`,
-          verbDone: "simulated on sui rpc",
+          observation: status === "success" ? "Simulation succeeded on Solana SVM." : `Simulation status: ${status}.`,
+          verbDone: "simulated on solana rpc",
         });
       } else if (nodeName === "fetch_history") {
-        console.log(`   [5. History]     Checked wallet velocity.`);
+        console.log(`   [5. History]     Checked wallet history.`);
         sendEvent({
           type: "tool_end",
           tool: "fetch_history",
-          observation: "Wallet history clean. No anomalous velocity.",
+          observation: "Wallet history retrieved successfully.",
           verbDone: "inspected wallet history",
         });
       } else if (nodeName === "vector_search") {
@@ -261,7 +291,7 @@ app.post<{
         sendEvent({
           type: "tool_start",
           tool: "gonka_verification",
-          thought: "Cross-verifying transaction security on Gonka Network via dual independent models (DeepSeek-V4 & MiniMax-M2.7)...",
+          thought: "Cross-verifying transaction security on Gonka Network via dual independent models...",
           action: "Decentralized inference & consensus",
           verbRunning: "verifying on gonka network...",
         });
@@ -337,9 +367,9 @@ app.listen(
       process.exit(1);
     }
     console.log(`\n🛡️  ===========================================`);
-    console.log(`🛡️  AEGIS AI Agent Server is LIVE`);
+    console.log(`🛡️  AEGIS Solana AI Agent Server is LIVE`);
     console.log(`📡 Listening on: http://0.0.0.0:${port}`);
-    console.log(`⛓️  Sui Mode    : ${getSuiMode().toUpperCase()}`);
+    console.log(`⛓️  Cluster      : ${getSolanaCluster().toUpperCase()}`);
     console.log(`🛡️  ===========================================\n`);
   }
 );

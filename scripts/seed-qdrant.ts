@@ -18,7 +18,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const collection = process.env.QDRANT_COLLECTION ?? "ptb_patterns";
+  const collection = process.env.QDRANT_COLLECTION ?? "solana_patterns";
 
   const qdrant = new QdrantClient({
     url: process.env.QDRANT_URL,
